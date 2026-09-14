@@ -1,0 +1,17 @@
+# dependencies
+/node_modules
+
+# secrets
+.env
+.env.local
+
+# stray full-codebase dump that includes old .env contents — never commit this
+all_code.txt
+
+# user-uploaded files — not portable across deploys with an ephemeral
+# filesystem; see the project notes about moving this to cloud storage
+/uploads/*
+!/uploads/.gitkeep
+
+# logs
+npm-debug.log*

@@ -1,0 +1,5 @@
+# OS / editor noise not already covered by the client/server/ai-model .gitignores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
