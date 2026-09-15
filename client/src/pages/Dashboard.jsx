@@ -41,6 +41,7 @@ function Dashboard() {
     const parsed = JSON.parse(userData);
     setUser(parsed);
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
