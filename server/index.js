@@ -23,6 +23,7 @@ const requestRoutes = require('./routes/requestRoutes');
 const recommendRoutes = require('./routes/recommendRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const pushRoutes = require('./routes/pushRoutes');
 
 // Routes use karo
 app.use('/api/auth', authRoutes);
@@ -33,6 +34,7 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/recommend', recommendRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/requests', messageRoutes);
+app.use('/api/push', pushRoutes);
 
 // Test route
 app.get('/', (req, res) => {

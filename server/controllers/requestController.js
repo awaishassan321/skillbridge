@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { sendPushToUser } = require('../utils/sendPush');
 
 const sendRequest = async (req, res) => {
     const { receiverId: receiver_id, skillId: skill_id, message } = req.body;
@@ -25,6 +26,19 @@ const sendRequest = async (req, res) => {
             message: 'Request sent successfully',
             request_id: result.rows[0].request_id
         });
+
+        const info = await pool.query(
+            `SELECT u.name AS sender_name, s.skill_name FROM skillbridge.users u, skillbridge.skills s
+             WHERE u.user_id = $1 AND s.skill_id = $2`,
+            [sender_id, skill_id]
+        );
+        if (info.rows.length) {
+            sendPushToUser(receiver_id, {
+                title: 'New service request',
+                body: `${info.rows[0].sender_name} is interested in your "${info.rows[0].skill_name}" service`,
+                url: '/dashboard'
+            });
+        }
 
     } catch (error) {
         console.error('Error sending request:', error);
@@ -98,7 +112,11 @@ const updateRequest = async (req, res) => {
 
     try {
         const checkResult = await pool.query(
-            `SELECT receiver_id, status FROM skillbridge.requests WHERE request_id = $1`,
+            `SELECT r.receiver_id, r.status, r.sender_id, r.skill_id, u.name AS receiver_name, s.skill_name
+             FROM skillbridge.requests r
+             JOIN skillbridge.users u ON u.user_id = r.receiver_id
+             JOIN skillbridge.skills s ON s.skill_id = r.skill_id
+             WHERE r.request_id = $1`,
             [id]
         );
 
@@ -106,7 +124,7 @@ const updateRequest = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Request not found' });
         }
 
-        const { receiver_id: receiverId, status: currentStatus } = checkResult.rows[0];
+        const { receiver_id: receiverId, status: currentStatus, sender_id, receiver_name, skill_name } = checkResult.rows[0];
 
         if (receiverId !== userId) {
             return res.status(403).json({ success: false, message: 'You can only update requests sent to you' });
@@ -122,6 +140,19 @@ const updateRequest = async (req, res) => {
         );
 
         res.json({ success: true, message: `Request ${status} successfully` });
+
+        const notifCopy = {
+            accepted: `${receiver_name} accepted your request for "${skill_name}"`,
+            rejected: `${receiver_name} declined your request for "${skill_name}"`,
+            completed: `${receiver_name} marked "${skill_name}" as completed — leave a review!`
+        };
+        if (notifCopy[status]) {
+            sendPushToUser(sender_id, {
+                title: 'SkillBridge update',
+                body: notifCopy[status],
+                url: '/dashboard'
+            });
+        }
 
     } catch (error) {
         console.error('Error updating request:', error);

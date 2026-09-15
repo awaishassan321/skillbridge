@@ -1,4 +1,5 @@
 const { pool } = require('../config/db');
+const { sendPushToUser } = require('../utils/sendPush');
 
 const canAccessRequest = async (requestId, userId) => {
     const result = await pool.query(
@@ -11,7 +12,7 @@ const canAccessRequest = async (requestId, userId) => {
     if (sender_id !== userId && receiver_id !== userId) return { ok: false, reason: 'forbidden' };
     if (!['accepted', 'completed'].includes(status)) return { ok: false, reason: 'not_accepted' };
 
-    return { ok: true };
+    return { ok: true, sender_id, receiver_id };
 };
 
 const getMessages = async (req, res) => {
@@ -74,6 +75,16 @@ const sendMessage = async (req, res) => {
                 CREATED_AT: result.rows[0].created_at
             }
         });
+
+        const otherPartyId = access.sender_id === req.user.userId ? access.receiver_id : access.sender_id;
+        const senderInfo = await pool.query(`SELECT name FROM skillbridge.users WHERE user_id = $1`, [req.user.userId]);
+        if (senderInfo.rows.length) {
+            sendPushToUser(otherPartyId, {
+                title: `New message from ${senderInfo.rows[0].name}`,
+                body: body.trim().slice(0, 100),
+                url: '/dashboard'
+            });
+        }
 
     } catch (err) {
         res.status(500).json({ message: err.message });

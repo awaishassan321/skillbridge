@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../components/Navbar';
 import { API_BASE_URL } from '../config';
+import { subscribeToPush, isPushSupported } from '../utils/push';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -25,6 +26,12 @@ function Login() {
       localStorage.setItem('userRole', res.data.user.role);
       localStorage.setItem('userName', res.data.user.name);
       localStorage.setItem('userId', res.data.user.id);
+
+      // Fire-and-forget: prompts for permission only the first time, and
+      // silently resolves if already granted/denied — never blocks login.
+      if (isPushSupported()) {
+        subscribeToPush().catch(() => {});
+      }
 
       const role = res.data.user.role;
       if (role === 'admin') {
