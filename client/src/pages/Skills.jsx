@@ -5,6 +5,7 @@ import Navbar from '../components/Navbar';
 import StarRating from '../components/StarRating';
 import ReviewsModal from '../components/ReviewsModal';
 import { API_BASE_URL } from '../config';
+import { getCategoryIcon } from '../utils/categoryVisual';
 
 function Skills() {
   const [skills, setSkills] = useState([]);
@@ -231,8 +232,12 @@ function Skills() {
                 {recommendations.map((skill, index) => (
                   <div key={index}
                     className="h-full flex flex-col bg-white rounded-xl shadow-sm border-2 border-primary overflow-hidden">
-                    {skill.IMAGE_URL && (
+                    {skill.IMAGE_URL ? (
                       <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-40 object-cover shrink-0" />
+                    ) : (
+                      <div className="w-full h-24 flex items-center justify-center text-4xl shrink-0" style={{ background: 'linear-gradient(135deg, #800000, #a00000)' }}>
+                        {getCategoryIcon(skill.CATEGORY)}
+                      </div>
                     )}
                     <div className="p-6 flex-1 flex flex-col">
                       <div className="flex justify-between items-start mb-3 gap-2">
@@ -331,8 +336,12 @@ function Skills() {
             {paginatedSkills.map((skill) => (
               <div key={skill.SKILL_ID}
                 className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden hover:shadow-md hover:border-primary transition-all">
-                {skill.IMAGE_URL && (
+                {skill.IMAGE_URL ? (
                   <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-40 object-cover shrink-0" />
+                ) : (
+                  <div className="w-full h-24 flex items-center justify-center text-4xl shrink-0" style={{ background: 'linear-gradient(135deg, #800000, #a00000)' }}>
+                    {getCategoryIcon(skill.CATEGORY)}
+                  </div>
                 )}
                 <div className="p-6 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-3 gap-2">

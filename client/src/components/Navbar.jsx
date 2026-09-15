@@ -90,6 +90,10 @@ function Navbar() {
                 className="text-red-200 hover:text-white font-medium transition-all">
                 Dashboard
               </Link>
+              <Link to="/messages"
+                className="text-red-200 hover:text-white font-medium transition-all">
+                Messages
+              </Link>
               {user.role === 'admin' && (
                 <Link to="/admin"
                   className="text-yellow-300 hover:text-yellow-100 font-medium transition-all">
@@ -167,6 +171,9 @@ function Navbar() {
             <>
               <Link to="/dashboard" className="block py-2 text-red-100 hover:text-white font-medium">
                 Dashboard
+              </Link>
+              <Link to="/messages" className="block py-2 text-red-100 hover:text-white font-medium">
+                Messages
               </Link>
               {user.role === 'admin' && (
                 <Link to="/admin" className="block py-2 text-yellow-300 hover:text-yellow-100 font-medium">

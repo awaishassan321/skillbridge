@@ -91,4 +91,46 @@ const sendMessage = async (req, res) => {
     }
 };
 
-module.exports = { getMessages, sendMessage };
+const getConversations = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+
+        const result = await pool.query(
+            `SELECT r.request_id, r.status, r.skill_id, s.skill_name,
+                    CASE WHEN r.sender_id = $1 THEN r.receiver_id ELSE r.sender_id END AS other_user_id,
+                    u.name AS other_user_name, u.avatar_url AS other_user_avatar,
+                    lm.body AS last_message,
+                    TO_CHAR(COALESCE(lm.created_at, r.created_at), 'YYYY-MM-DD HH24:MI:SS') AS last_activity
+             FROM skillbridge.requests r
+             JOIN skillbridge.skills s ON s.skill_id = r.skill_id
+             JOIN skillbridge.users u ON u.user_id = (CASE WHEN r.sender_id = $1 THEN r.receiver_id ELSE r.sender_id END)
+             LEFT JOIN LATERAL (
+                 SELECT body, created_at FROM skillbridge.messages m
+                 WHERE m.request_id = r.request_id
+                 ORDER BY m.created_at DESC LIMIT 1
+             ) lm ON true
+             WHERE (r.sender_id = $1 OR r.receiver_id = $1) AND r.status IN ('accepted', 'completed')
+             ORDER BY COALESCE(lm.created_at, r.created_at) DESC`,
+            [userId]
+        );
+
+        res.json({
+            conversations: result.rows.map(row => ({
+                REQUEST_ID: row.request_id,
+                STATUS: row.status,
+                SKILL_ID: row.skill_id,
+                SKILL_NAME: row.skill_name,
+                OTHER_USER_ID: row.other_user_id,
+                OTHER_USER_NAME: row.other_user_name,
+                OTHER_USER_AVATAR: row.other_user_avatar,
+                LAST_MESSAGE: row.last_message,
+                LAST_ACTIVITY: row.last_activity
+            }))
+        });
+
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports = { getMessages, sendMessage, getConversations };

@@ -6,6 +6,7 @@ import Skills from './pages/Skills';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import Profile from './pages/Profile';
+import Messages from './pages/Messages';
 
 function App() {
     return (
@@ -17,6 +18,7 @@ function App() {
                 <Route path="/skills" element={<Skills />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/messages" element={<Messages />} />
                 <Route path="/admin" element={<Admin />} />
             </Routes>
         </Router>

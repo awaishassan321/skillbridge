@@ -6,6 +6,7 @@ import StarRating from '../components/StarRating';
 import ChatModal from '../components/ChatModal';
 import ReviewsModal from '../components/ReviewsModal';
 import { API_BASE_URL } from '../config';
+import { getCategoryIcon } from '../utils/categoryVisual';
 
 function Dashboard() {
   const [user, setUser] = useState(null);
@@ -30,7 +31,11 @@ function Dashboard() {
   const [contactingSkillId, setContactingSkillId] = useState(null);
   const [contactMsg, setContactMsg] = useState({ type: '', text: '' });
   const [reviewsFor, setReviewsFor] = useState(null);
+  const [requestsView, setRequestsView] = useState('received');
+  const [requestsStatusFilter, setRequestsStatusFilter] = useState('all');
+  const [requestsPage, setRequestsPage] = useState(1);
   const navigate = useNavigate();
+  const REQUESTS_PER_PAGE = 8;
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -40,9 +45,14 @@ function Dashboard() {
     }
     const parsed = JSON.parse(userData);
     setUser(parsed);
+    setRequestsView(parsed.role === 'provider' ? 'received' : 'sent');
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    setRequestsPage(1);
+  }, [requestsView, requestsStatusFilter]);
 
   const fetchData = async () => {
     try {
@@ -219,24 +229,24 @@ function Dashboard() {
     setReviewSubmitting(false);
   };
 
-  // Provider ke liye incoming requests
-  const incomingRequests = requests.filter(r =>
-    r.RECEIVER_ID === user?.id && r.STATUS === 'pending'
-  );
+  // Requests jo isay bheji gayi hain (koi bhi role apni skill par request receive kar sakta hai)
+  const receivedRequests = requests.filter(r => r.RECEIVER_ID === user?.id);
+  const incomingRequests = receivedRequests.filter(r => r.STATUS === 'pending');
+  const acceptedAsProvider = receivedRequests.filter(r => r.STATUS === 'accepted');
 
-  // Provider ke liye accepted requests (ongoing work, chat available)
-  const acceptedAsProvider = requests.filter(r =>
-    r.RECEIVER_ID === user?.id && r.STATUS === 'accepted'
-  );
+  // Requests jo isne khud bheji hain
+  const sentRequests = requests.filter(r => r.SENDER_ID === user?.id);
 
-  // Provider ke liye jobs jo complete ho chuki hain
-  const completedAsProvider = requests.filter(r =>
-    r.RECEIVER_ID === user?.id && r.STATUS === 'completed'
-  );
-
-  // Seeker ke liye sent requests
-  const sentRequests = requests.filter(r =>
-    r.SENDER_ID === user?.id
+  // Ek unified "Requests" tab: Received vs Sent, aur status ke hisab se filter + pagination,
+  // taake requests ki tadaad zyada ho jane par bhi asaani se navigate kiya ja sake.
+  const requestsBase = requestsView === 'received' ? receivedRequests : sentRequests;
+  const requestsFiltered = requestsStatusFilter === 'all'
+    ? requestsBase
+    : requestsBase.filter(r => r.STATUS === requestsStatusFilter);
+  const requestsTotalPages = Math.max(1, Math.ceil(requestsFiltered.length / REQUESTS_PER_PAGE));
+  const requestsPaginated = requestsFiltered.slice(
+    (requestsPage - 1) * REQUESTS_PER_PAGE,
+    requestsPage * REQUESTS_PER_PAGE
   );
 
   const isProvider = user?.role === 'provider';
@@ -321,7 +331,7 @@ function Dashboard() {
                 ? 'bg-primary text-white'
                 : 'bg-white text-gray-600 border border-gray-200 hover:border-maroon-200'
             }`}>
-            {isProvider ? 'Incoming Requests' : 'My Requests'}
+            Requests
           </button>
         </div>
 
@@ -472,8 +482,12 @@ function Dashboard() {
                       ) : (
                         <div key={skill.SKILL_ID}
                           className="h-full flex flex-col bg-white rounded-xl border border-maroon-100 overflow-hidden hover:shadow-md transition-all">
-                          {skill.IMAGE_URL && (
+                          {skill.IMAGE_URL ? (
                             <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-36 object-cover shrink-0" />
+                          ) : (
+                            <div className="w-full h-20 flex items-center justify-center text-3xl shrink-0" style={{ background: 'linear-gradient(135deg, #800000, #a00000)' }}>
+                              {getCategoryIcon(skill.CATEGORY)}
+                            </div>
                           )}
                           <div className="p-6 flex-1 flex flex-col">
                             <div className="flex justify-between items-start gap-2">
@@ -517,100 +531,6 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Provider Incoming Requests Tab */}
-            {activeTab === 'requests' && (
-              <div>
-                <h3 className="text-lg font-bold text-gray-700 mb-4">Pending Requests</h3>
-                <div className="space-y-4 mb-10">
-                  {incomingRequests.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500">No pending requests!</div>
-                  ) : (
-                    incomingRequests.map((req) => (
-                      <div key={req.REQUEST_ID}
-                        className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-                        <div>
-                          <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
-                          <p className="text-gray-500 text-sm">{req.MESSAGE}</p>
-                          <p className="text-sm text-gray-400 mt-1">
-                            From: <span className="font-medium text-primary">{req.SENDER_NAME}</span>
-                          </p>
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => handleUpdateRequest(req.REQUEST_ID, 'accepted')}
-                            className="flex-1 sm:flex-none bg-green-500 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-600 transition-all hover:scale-105">
-                            ✓ Accept
-                          </button>
-                          <button
-                            onClick={() => handleUpdateRequest(req.REQUEST_ID, 'rejected')}
-                            className="flex-1 sm:flex-none bg-red-100 text-red-600 px-5 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-all hover:scale-105">
-                            ✗ Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <h3 className="text-lg font-bold text-gray-700 mb-4">Accepted — Ongoing</h3>
-                <div className="space-y-4 mb-10">
-                  {acceptedAsProvider.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500">No ongoing requests yet.</div>
-                  ) : (
-                    acceptedAsProvider.map((req) => (
-                      <div key={req.REQUEST_ID}
-                        className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-                        <div>
-                          <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
-                          <p className="text-gray-500 text-sm">{req.MESSAGE}</p>
-                          <p className="text-sm text-gray-400 mt-1">
-                            With: <span className="font-medium text-primary">{req.SENDER_NAME}</span>
-                          </p>
-                        </div>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setChattingRequest(req)}
-                            className="bg-primary text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-secondary transition-all">
-                            💬 Chat
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Mark this job as completed? The seeker will be able to leave a review afterwards.')) {
-                                handleUpdateRequest(req.REQUEST_ID, 'completed');
-                              }
-                            }}
-                            className="bg-green-500 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-600 transition-all">
-                            ✓ Mark Completed
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <h3 className="text-lg font-bold text-gray-700 mb-4">Completed</h3>
-                <div className="space-y-4">
-                  {completedAsProvider.length === 0 ? (
-                    <div className="text-center py-10 text-gray-500">No completed jobs yet.</div>
-                  ) : (
-                    completedAsProvider.map((req) => (
-                      <div key={req.REQUEST_ID}
-                        className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-                        <div>
-                          <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
-                          <p className="text-sm text-gray-400 mt-1">
-                            With: <span className="font-medium text-primary">{req.SENDER_NAME}</span>
-                          </p>
-                        </div>
-                        <span className="px-4 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-700 self-start sm:self-auto">
-                          Completed
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
           </>
         ) : (
           <>
@@ -627,8 +547,12 @@ function Dashboard() {
                 {skills.map((skill) => (
                   <div key={skill.SKILL_ID}
                     className="h-full flex flex-col bg-white rounded-xl border border-maroon-100 overflow-hidden hover:shadow-md transition-all">
-                    {skill.IMAGE_URL && (
+                    {skill.IMAGE_URL ? (
                       <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-36 object-cover shrink-0" />
+                    ) : (
+                      <div className="w-full h-20 flex items-center justify-center text-3xl shrink-0" style={{ background: 'linear-gradient(135deg, #800000, #a00000)' }}>
+                        {getCategoryIcon(skill.CATEGORY)}
+                      </div>
                     )}
                     <div className="p-6 flex-1 flex flex-col">
                       <span className="bg-maroon-100 text-primary px-3 py-1 rounded-full text-sm self-start">
@@ -674,55 +598,137 @@ function Dashboard() {
               </div>
             )}
 
-            {/* Seeker Requests Tab */}
-            {activeTab === 'requests' && (
+          </>
+        )}
+
+        {/* Unified Requests Tab — Received vs Sent, filterable by status, paginated */}
+        {activeTab === 'requests' && (
+          <div>
+            <div className="flex flex-wrap gap-3 justify-between items-center mb-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setRequestsView('received')}
+                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                    requestsView === 'received' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200'
+                  }`}>
+                  Received ({receivedRequests.length})
+                </button>
+                <button
+                  onClick={() => setRequestsView('sent')}
+                  className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                    requestsView === 'sent' ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200'
+                  }`}>
+                  Sent ({sentRequests.length})
+                </button>
+              </div>
+
+              <select
+                value={requestsStatusFilter}
+                onChange={(e) => setRequestsStatusFilter(e.target.value)}
+                className="border border-gray-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-primary">
+                <option value="all">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="accepted">Accepted</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+
+            {requestsFiltered.length === 0 ? (
+              <div className="text-center py-20 text-gray-500">
+                {requestsView === 'received' ? 'No requests received yet.' : 'No requests sent yet.'}
+              </div>
+            ) : (
               <div className="space-y-4">
-                {sentRequests.length === 0 ? (
-                  <div className="text-center py-20 text-gray-500">No requests sent yet!</div>
-                ) : (
-                  sentRequests.map((req) => (
-                    <div key={req.REQUEST_ID}
-                      className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
-                      <div>
-                        <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
-                        <p className="text-gray-500 text-sm">{req.MESSAGE}</p>
-                        <p className="text-sm text-gray-400 mt-1">
-                          To: <span className="font-medium text-primary">{req.RECEIVER_NAME}</span>
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {(req.STATUS === 'accepted' || req.STATUS === 'completed') && (
-                          <button
-                            onClick={() => setChattingRequest(req)}
-                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-secondary transition-all">
-                            💬 Chat
-                          </button>
+                {requestsPaginated.map((req) => (
+                  <div key={req.REQUEST_ID}
+                    className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
+                      {req.MESSAGE && <p className="text-gray-500 text-sm">{req.MESSAGE}</p>}
+                      <p className="text-sm text-gray-400 mt-1">
+                        {requestsView === 'received' ? (
+                          <>From: <span className="font-medium text-primary">{req.SENDER_NAME}</span></>
+                        ) : (
+                          <>To: <span className="font-medium text-primary">{req.RECEIVER_NAME}</span></>
                         )}
-                        {req.STATUS === 'completed' && !req.HAS_REVIEW && (
-                          <button
-                            onClick={() => openReviewForm(req)}
-                            className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg text-sm font-bold hover:bg-yellow-200 transition-all">
-                            ⭐ Leave a Review
-                          </button>
-                        )}
-                        {req.STATUS === 'completed' && req.HAS_REVIEW && (
-                          <span className="text-xs text-gray-400">✓ Reviewed</span>
-                        )}
-                        <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-                          req.STATUS === 'accepted' ? 'bg-maroon-100 text-primary' :
-                          req.STATUS === 'completed' ? 'bg-blue-100 text-blue-700' :
-                          req.STATUS === 'rejected' ? 'bg-red-100 text-red-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {req.STATUS}
-                        </span>
-                      </div>
+                      </p>
                     </div>
-                  ))
-                )}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {requestsView === 'received' && req.STATUS === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleUpdateRequest(req.REQUEST_ID, 'accepted')}
+                            className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-600 transition-all">
+                            ✓ Accept
+                          </button>
+                          <button
+                            onClick={() => handleUpdateRequest(req.REQUEST_ID, 'rejected')}
+                            className="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-all">
+                            ✗ Reject
+                          </button>
+                        </>
+                      )}
+                      {requestsView === 'received' && req.STATUS === 'accepted' && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm('Mark this job as completed? The other person will be able to leave a review afterwards.')) {
+                              handleUpdateRequest(req.REQUEST_ID, 'completed');
+                            }
+                          }}
+                          className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-600 transition-all">
+                          ✓ Mark Completed
+                        </button>
+                      )}
+                      {(req.STATUS === 'accepted' || req.STATUS === 'completed') && (
+                        <button
+                          onClick={() => setChattingRequest(req)}
+                          className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-secondary transition-all">
+                          💬 Chat
+                        </button>
+                      )}
+                      {requestsView === 'sent' && req.STATUS === 'completed' && !req.HAS_REVIEW && (
+                        <button
+                          onClick={() => openReviewForm(req)}
+                          className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg text-sm font-bold hover:bg-yellow-200 transition-all">
+                          ⭐ Leave a Review
+                        </button>
+                      )}
+                      {requestsView === 'sent' && req.STATUS === 'completed' && req.HAS_REVIEW && (
+                        <span className="text-xs text-gray-400">✓ Reviewed</span>
+                      )}
+                      <span className={`px-4 py-2 rounded-full text-sm font-medium ${
+                        req.STATUS === 'accepted' ? 'bg-maroon-100 text-primary' :
+                        req.STATUS === 'completed' ? 'bg-blue-100 text-blue-700' :
+                        req.STATUS === 'rejected' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {req.STATUS}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-          </>
+
+            {requestsTotalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8">
+                <button
+                  onClick={() => setRequestsPage(p => Math.max(1, p - 1))}
+                  disabled={requestsPage === 1}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 hover:bg-gray-50">
+                  Previous
+                </button>
+                <span className="text-sm text-gray-500 px-2">Page {requestsPage} of {requestsTotalPages}</span>
+                <button
+                  onClick={() => setRequestsPage(p => Math.min(requestsTotalPages, p + 1))}
+                  disabled={requestsPage === requestsTotalPages}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 disabled:opacity-40 hover:bg-gray-50">
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
