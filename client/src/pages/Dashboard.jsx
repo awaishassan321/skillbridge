@@ -4,6 +4,7 @@ import axios from 'axios';
 import Navbar from '../components/Navbar';
 import StarRating from '../components/StarRating';
 import ChatModal from '../components/ChatModal';
+import ReviewsModal from '../components/ReviewsModal';
 import { API_BASE_URL } from '../config';
 
 function Dashboard() {
@@ -24,6 +25,11 @@ function Dashboard() {
   const [newSkillImage, setNewSkillImage] = useState(null);
   const [editSkillImage, setEditSkillImage] = useState(null);
   const [chattingRequest, setChattingRequest] = useState(null);
+  const [addSkillSubmitting, setAddSkillSubmitting] = useState(false);
+  const [editSkillSubmitting, setEditSkillSubmitting] = useState(false);
+  const [contactingSkillId, setContactingSkillId] = useState(null);
+  const [contactMsg, setContactMsg] = useState({ type: '', text: '' });
+  const [reviewsFor, setReviewsFor] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -64,6 +70,7 @@ function Dashboard() {
   const handleAddSkill = async (e) => {
     e.preventDefault();
     setAddSkillError('');
+    setAddSkillSubmitting(true);
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(
@@ -87,6 +94,7 @@ function Dashboard() {
     } catch (err) {
       setAddSkillError(err.response?.data?.message || 'Failed to add skill');
     }
+    setAddSkillSubmitting(false);
   };
 
   const handleDeleteSkill = async (skillId) => {
@@ -116,6 +124,7 @@ function Dashboard() {
   const handleSaveEditSkill = async (e, skillId) => {
     e.preventDefault();
     setEditSkillError('');
+    setEditSkillSubmitting(true);
     try {
       const token = localStorage.getItem('token');
       await axios.put(
@@ -138,6 +147,30 @@ function Dashboard() {
     } catch (err) {
       setEditSkillError(err.response?.data?.message || 'Failed to update skill');
     }
+    setEditSkillSubmitting(false);
+  };
+
+  const handleContactProvider = async (skill) => {
+    setContactingSkillId(skill.SKILL_ID);
+    setContactMsg({ type: '', text: '' });
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_BASE_URL}/api/requests`,
+        {
+          receiverId: skill.USER_ID,
+          skillId: skill.SKILL_ID,
+          message: `I am interested in your ${skill.SKILL_NAME} service`
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setContactMsg({ type: 'success', text: `Request sent to ${skill.NAME}! Track it in the "My Requests" tab.` });
+      fetchData();
+    } catch (err) {
+      setContactMsg({ type: 'error', text: err.response?.data?.message || 'Failed to send request.' });
+    }
+    setContactingSkillId(null);
+    setTimeout(() => setContactMsg({ type: '', text: '' }), 4000);
   };
 
   const handleUpdateRequest = async (requestId, status) => {
@@ -209,9 +242,9 @@ function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8">
 
         {/* Welcome */}
-        <div className="bg-primary text-white rounded-2xl p-8 mb-8 flex justify-between items-center">
+        <div className="bg-primary text-white rounded-2xl p-6 sm:p-8 mb-8 flex flex-col sm:flex-row gap-4 justify-between sm:items-center">
           <div>
-            <h1 className="text-3xl font-bold mb-1">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1 break-words">
               Welcome, {user?.name}!
             </h1>
             <p className="text-maroon-100">
@@ -220,13 +253,13 @@ function Dashboard() {
           </div>
           <button
             onClick={handleLogout}
-            className="bg-white text-primary px-6 py-2 rounded-lg font-medium hover:bg-beige">
+            className="self-start sm:self-auto bg-white text-primary px-6 py-2 rounded-lg font-medium hover:bg-beige">
             Logout
           </button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
           {isProvider ? (
             <>
               <div className="bg-white p-6 rounded-xl border border-maroon-100 text-center">
@@ -299,7 +332,7 @@ function Dashboard() {
                       {addSkillError && (
                         <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{addSkillError}</div>
                       )}
-                      <form onSubmit={handleAddSkill} className="grid grid-cols-2 gap-4">
+                      <form onSubmit={handleAddSkill} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <input
                           type="text"
                           placeholder="Skill name (e.g. Math Tutoring)"
@@ -344,8 +377,9 @@ function Dashboard() {
                           />
                         </div>
                         <div className="col-span-2 flex gap-3">
-                          <button type="submit" className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-secondary">
-                            Save Skill
+                          <button type="submit" disabled={addSkillSubmitting}
+                            className="bg-primary text-white px-6 py-3 rounded-lg font-medium hover:bg-secondary disabled:opacity-60">
+                            {addSkillSubmitting ? 'Saving...' : 'Save Skill'}
                           </button>
                           <button type="button" onClick={() => { setShowAddSkill(false); setNewSkillImage(null); }}
                             className="border border-gray-200 text-gray-600 px-6 py-3 rounded-lg font-medium hover:bg-gray-50">
@@ -363,7 +397,7 @@ function Dashboard() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
                   {skills.filter(s => s.USER_ID === user?.id).length === 0 ? (
                     <div className="col-span-3 text-center py-20 text-gray-500">
                       No skills added yet!
@@ -418,8 +452,9 @@ function Dashboard() {
                               />
                             </div>
                             <div className="flex gap-2">
-                              <button type="submit" className="flex-1 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary">
-                                Save
+                              <button type="submit" disabled={editSkillSubmitting}
+                                className="flex-1 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary disabled:opacity-60">
+                                {editSkillSubmitting ? 'Saving...' : 'Save'}
                               </button>
                               <button type="button" onClick={() => { setEditingSkillId(null); setEditSkillImage(null); }}
                                 className="flex-1 border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
@@ -430,16 +465,16 @@ function Dashboard() {
                         </div>
                       ) : (
                         <div key={skill.SKILL_ID}
-                          className="bg-white rounded-xl border border-maroon-100 overflow-hidden hover:shadow-md transition-all">
+                          className="h-full flex flex-col bg-white rounded-xl border border-maroon-100 overflow-hidden hover:shadow-md transition-all">
                           {skill.IMAGE_URL && (
-                            <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-36 object-cover" />
+                            <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-36 object-cover shrink-0" />
                           )}
-                          <div className="p-6">
-                            <div className="flex justify-between items-start">
-                              <span className="bg-maroon-100 text-primary px-3 py-1 rounded-full text-sm">
+                          <div className="p-6 flex-1 flex flex-col">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="bg-maroon-100 text-primary px-3 py-1 rounded-full text-sm shrink-0">
                                 {skill.CATEGORY}
                               </span>
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 shrink-0">
                                 <button
                                   onClick={() => startEditSkill(skill)}
                                   className="text-gray-500 hover:text-primary text-sm">
@@ -452,11 +487,21 @@ function Dashboard() {
                                 </button>
                               </div>
                             </div>
-                            <h3 className="text-lg font-bold text-gray-800 mt-3 mb-1">
+                            <h3 className="text-lg font-bold text-gray-800 mt-3 mb-1 line-clamp-2">
                               {skill.SKILL_NAME}
                             </h3>
-                            <p className="text-gray-500 text-sm mb-3">{skill.DESCRIPTION}</p>
-                            <p className="text-primary font-bold">Rs. {skill.HOURLY_RATE}/hr</p>
+                            <div className="mb-2">
+                              {Number(skill.REVIEW_COUNT) > 0 ? (
+                                <button onClick={() => setReviewsFor({ userId: skill.USER_ID, name: skill.SKILL_NAME })}
+                                  className="hover:underline">
+                                  <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                                </button>
+                              ) : (
+                                <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                              )}
+                            </div>
+                            <p className="text-gray-500 text-sm mb-3 line-clamp-3">{skill.DESCRIPTION}</p>
+                            <p className="text-primary font-bold mt-auto pt-2">Rs. {skill.HOURLY_RATE}/hr</p>
                           </div>
                         </div>
                       )
@@ -476,7 +521,7 @@ function Dashboard() {
                   ) : (
                     incomingRequests.map((req) => (
                       <div key={req.REQUEST_ID}
-                        className="bg-white rounded-xl border border-maroon-100 p-6 flex justify-between items-center">
+                        className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
                         <div>
                           <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
                           <p className="text-gray-500 text-sm">{req.MESSAGE}</p>
@@ -487,12 +532,12 @@ function Dashboard() {
                         <div className="flex gap-3">
                           <button
                             onClick={() => handleUpdateRequest(req.REQUEST_ID, 'accepted')}
-                            className="bg-green-500 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-600 transition-all hover:scale-105">
+                            className="flex-1 sm:flex-none bg-green-500 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-green-600 transition-all hover:scale-105">
                             ✓ Accept
                           </button>
                           <button
                             onClick={() => handleUpdateRequest(req.REQUEST_ID, 'rejected')}
-                            className="bg-red-100 text-red-600 px-5 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-all hover:scale-105">
+                            className="flex-1 sm:flex-none bg-red-100 text-red-600 px-5 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-all hover:scale-105">
                             ✗ Reject
                           </button>
                         </div>
@@ -508,7 +553,7 @@ function Dashboard() {
                   ) : (
                     acceptedAsProvider.map((req) => (
                       <div key={req.REQUEST_ID}
-                        className="bg-white rounded-xl border border-maroon-100 p-6 flex justify-between items-center">
+                        className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
                         <div>
                           <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
                           <p className="text-gray-500 text-sm">{req.MESSAGE}</p>
@@ -518,7 +563,7 @@ function Dashboard() {
                         </div>
                         <button
                           onClick={() => setChattingRequest(req)}
-                          className="bg-primary text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-secondary transition-all">
+                          className="self-start sm:self-auto bg-primary text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-secondary transition-all">
                           💬 Chat
                         </button>
                       </div>
@@ -533,28 +578,60 @@ function Dashboard() {
             {/* SEEKER VIEW */}
             {/* Seeker Skills Tab */}
             {activeTab === 'skills' && (
-              <div className="grid grid-cols-3 gap-6">
+              <div>
+                {contactMsg.text && (
+                  <div className={`p-3 rounded-lg mb-4 text-sm ${contactMsg.type === 'success' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                    {contactMsg.text}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
                 {skills.map((skill) => (
                   <div key={skill.SKILL_ID}
-                    className="bg-white rounded-xl border border-maroon-100 overflow-hidden hover:shadow-md transition-all">
+                    className="h-full flex flex-col bg-white rounded-xl border border-maroon-100 overflow-hidden hover:shadow-md transition-all">
                     {skill.IMAGE_URL && (
-                      <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-36 object-cover" />
+                      <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-36 object-cover shrink-0" />
                     )}
-                    <div className="p-6">
-                      <span className="bg-maroon-100 text-primary px-3 py-1 rounded-full text-sm">
+                    <div className="p-6 flex-1 flex flex-col">
+                      <span className="bg-maroon-100 text-primary px-3 py-1 rounded-full text-sm self-start">
                         {skill.CATEGORY}
                       </span>
-                      <h3 className="text-lg font-bold text-gray-800 mt-3 mb-1">
+                      <h3 className="text-lg font-bold text-gray-800 mt-3 mb-1 line-clamp-2">
                         {skill.SKILL_NAME}
                       </h3>
                       <div className="mb-2">
-                        <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                        {Number(skill.REVIEW_COUNT) > 0 ? (
+                          <button onClick={() => setReviewsFor({ userId: skill.USER_ID, name: skill.NAME })}
+                            className="hover:underline">
+                            <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                          </button>
+                        ) : (
+                          <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                        )}
                       </div>
-                      <p className="text-gray-500 text-sm mb-3">{skill.DESCRIPTION}</p>
-                      <p className="text-primary font-bold">Rs. {skill.HOURLY_RATE}/hr</p>
+                      <p className="text-gray-500 text-sm mb-3 line-clamp-3">{skill.DESCRIPTION}</p>
+                      <div className="flex items-center gap-2 mb-3 mt-auto">
+                        {skill.PROVIDER_AVATAR ? (
+                          <img src={`${API_BASE_URL}${skill.PROVIDER_AVATAR}`} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <span className="w-7 h-7 rounded-full bg-maroon-100 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                            {skill.NAME?.charAt(0)?.toUpperCase() || 'U'}
+                          </span>
+                        )}
+                        <span className="text-sm text-gray-600 truncate">{skill.NAME}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-primary font-bold shrink-0">Rs. {skill.HOURLY_RATE}/hr</p>
+                        <button
+                          onClick={() => handleContactProvider(skill)}
+                          disabled={contactingSkillId === skill.SKILL_ID}
+                          className="shrink-0 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary disabled:opacity-60">
+                          {contactingSkillId === skill.SKILL_ID ? 'Sending...' : 'Contact'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
             )}
 
@@ -566,7 +643,7 @@ function Dashboard() {
                 ) : (
                   sentRequests.map((req) => (
                     <div key={req.REQUEST_ID}
-                      className="bg-white rounded-xl border border-maroon-100 p-6 flex justify-between items-center">
+                      className="bg-white rounded-xl border border-maroon-100 p-6 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
                       <div>
                         <h3 className="font-bold text-gray-800">{req.SKILL_NAME}</h3>
                         <p className="text-gray-500 text-sm">{req.MESSAGE}</p>
@@ -574,7 +651,7 @@ function Dashboard() {
                           To: <span className="font-medium text-primary">{req.RECEIVER_NAME}</span>
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         {req.STATUS === 'accepted' && (
                           <button
                             onClick={() => setChattingRequest(req)}
@@ -670,6 +747,15 @@ function Dashboard() {
           request={chattingRequest}
           currentUserId={user?.id}
           onClose={() => setChattingRequest(null)}
+        />
+      )}
+
+      {/* Reviews Modal */}
+      {reviewsFor && (
+        <ReviewsModal
+          userId={reviewsFor.userId}
+          providerName={reviewsFor.name}
+          onClose={() => setReviewsFor(null)}
         />
       )}
 

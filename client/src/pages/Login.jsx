@@ -8,10 +8,13 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
       const res = await axios.post(`${API_BASE_URL}/api/auth/login`, {
         email, password
@@ -32,6 +35,7 @@ function Login() {
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid email or password!');
     }
+    setLoading(false);
   };
 
   return (
@@ -79,8 +83,9 @@ function Login() {
 
             <button
               type="submit"
-              className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-secondary transition-all">
-              Login
+              disabled={loading}
+              className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-secondary transition-all disabled:opacity-60">
+              {loading ? 'Logging in...' : 'Login'}
             </button>
           </form>
 

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 
 function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Get user from localStorage on component mount and when localStorage changes
   useEffect(() => {
@@ -28,13 +30,18 @@ function Navbar() {
         setUser(null);
       }
     };
-    
+
     getUser();
-    
+
     // Listen for storage changes (in case another tab updates)
     window.addEventListener('storage', getUser);
     return () => window.removeEventListener('storage', getUser);
   }, []);
+
+  // Close the mobile menu whenever the route changes
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -46,20 +53,30 @@ function Navbar() {
     navigate('/login');
   };
 
+  const AvatarBadge = () => (
+    user.avatarUrl ? (
+      <img src={`${API_BASE_URL}${user.avatarUrl}`} alt="" className="w-6 h-6 rounded-full object-cover" />
+    ) : (
+      <span className="w-6 h-6 rounded-full bg-white text-primary flex items-center justify-center text-xs font-bold" style={{ color: '#800000' }}>
+        {user.name?.charAt(0)?.toUpperCase() || 'U'}
+      </span>
+    )
+  );
+
   return (
     <nav className="bg-primary shadow-lg sticky top-0 z-50" style={{ backgroundColor: '#800000' }}>
-      <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-        
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
-          <div className="bg-white text-primary w-9 h-9 rounded-lg flex items-center justify-center font-black text-lg" style={{ color: '#800000' }}>
+          <div className="bg-white text-primary w-9 h-9 rounded-lg flex items-center justify-center font-black text-lg shrink-0" style={{ color: '#800000' }}>
             S
           </div>
           <span className="text-white text-xl font-bold">SkillBridge</span>
         </Link>
 
-        {/* Nav Links */}
-        <div className="flex items-center gap-6">
+        {/* Desktop Nav Links */}
+        <div className="hidden lg:flex items-center gap-6">
           <Link to="/" className="text-red-200 hover:text-white font-medium transition-all">
             Home
           </Link>
@@ -82,13 +99,7 @@ function Navbar() {
               <div className="flex items-center gap-3 ml-2">
                 <Link to="/profile"
                   className="bg-red-800 text-white pl-2 pr-4 py-2 rounded-lg text-sm hover:bg-red-900 transition-all flex items-center gap-2">
-                  {user.avatarUrl ? (
-                    <img src={`${API_BASE_URL}${user.avatarUrl}`} alt="" className="w-6 h-6 rounded-full object-cover" />
-                  ) : (
-                    <span className="w-6 h-6 rounded-full bg-white text-primary flex items-center justify-center text-xs font-bold" style={{ color: '#800000' }}>
-                      {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </span>
-                  )}
+                  <AvatarBadge />
                   <span>
                     Hi, {user.name?.split(' ')[0] || 'User'}!
                     <span className="text-red-300 ml-1 text-xs">
@@ -116,7 +127,79 @@ function Navbar() {
             </>
           )}
         </div>
+
+        {/* Mobile: quick avatar + hamburger */}
+        <div className="flex lg:hidden items-center gap-3">
+          {user && (
+            <Link to="/profile" className="shrink-0">
+              <AvatarBadge />
+            </Link>
+          )}
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
+            className="text-white w-9 h-9 flex items-center justify-center rounded-lg hover:bg-red-800 transition-all">
+            {menuOpen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div className="lg:hidden border-t border-red-800 bg-primary px-4 sm:px-6 py-4 space-y-1" style={{ backgroundColor: '#800000' }}>
+          <Link to="/" className="block py-2 text-red-100 hover:text-white font-medium">
+            Home
+          </Link>
+          <Link to="/skills" className="block py-2 text-red-100 hover:text-white font-medium">
+            Browse Skills
+          </Link>
+
+          {user ? (
+            <>
+              <Link to="/dashboard" className="block py-2 text-red-100 hover:text-white font-medium">
+                Dashboard
+              </Link>
+              {user.role === 'admin' && (
+                <Link to="/admin" className="block py-2 text-yellow-300 hover:text-yellow-100 font-medium">
+                  Admin Panel
+                </Link>
+              )}
+              <Link to="/profile" className="flex items-center gap-2 py-2 text-red-100 hover:text-white font-medium">
+                <AvatarBadge />
+                Hi, {user.name?.split(' ')[0] || 'User'}!
+                <span className="text-red-300 text-xs">
+                  ({user.role === 'admin' ? 'Admin' : user.role === 'provider' ? 'Provider' : 'Seeker'})
+                </span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="w-full text-left py-2 text-red-100 hover:text-white font-medium">
+                Logout
+              </button>
+            </>
+          ) : (
+            <div className="flex gap-3 pt-2">
+              <Link to="/login"
+                className="flex-1 text-center bg-white text-primary px-5 py-2 rounded-lg font-medium hover:bg-red-50 transition-all" style={{ color: '#800000' }}>
+                Login
+              </Link>
+              <Link to="/register"
+                className="flex-1 text-center bg-red-800 text-white px-5 py-2 rounded-lg font-medium hover:bg-red-900 transition-all">
+                Register
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 }

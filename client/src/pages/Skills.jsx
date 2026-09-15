@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import StarRating from '../components/StarRating';
+import ReviewsModal from '../components/ReviewsModal';
 import { API_BASE_URL } from '../config';
 
 function Skills() {
@@ -16,6 +17,8 @@ function Skills() {
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState({ show: false, type: '', message: '' });
   const [currentPage, setCurrentPage] = useState(1);
+  const [contactingSkillId, setContactingSkillId] = useState(null);
+  const [reviewsFor, setReviewsFor] = useState(null);
   const navigate = useNavigate();
   const PAGE_SIZE = 9;
 
@@ -65,6 +68,7 @@ function Skills() {
       });
       return;
     }
+    setContactingSkillId(skill.SKILL_ID);
     try {
       await axios.post(`${API_BASE_URL}/api/requests`, {
         receiverId: skill.USER_ID,
@@ -82,9 +86,10 @@ function Skills() {
       setModal({
         show: true,
         type: 'error',
-        message: 'Failed to send request. Please try again.'
+        message: err.response?.data?.message || 'Failed to send request. Please try again.'
       });
     }
+    setContactingSkillId(null);
   };
 
   const filtered = skills.filter(skill => {
@@ -222,43 +227,60 @@ function Skills() {
                 AI analyzing your request...
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
                 {recommendations.map((skill, index) => (
                   <div key={index}
-                    className="bg-white rounded-xl shadow-sm border-2 border-primary overflow-hidden">
+                    className="h-full flex flex-col bg-white rounded-xl shadow-sm border-2 border-primary overflow-hidden">
                     {skill.IMAGE_URL && (
-                      <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-40 object-cover" />
+                      <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-40 object-cover shrink-0" />
                     )}
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-3">
-                        <span className="bg-green-100 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                    <div className="p-6 flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-3 gap-2">
+                        <span className="bg-green-100 text-primary px-3 py-1 rounded-full text-sm font-medium shrink-0">
                           {skill.CATEGORY}
                         </span>
-                        <span className="text-primary font-bold">
+                        <span className="text-primary font-bold text-right shrink-0">
                           Rs. {skill.HOURLY_RATE}/hr
                         </span>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-800 mb-1">
+                      <h3 className="text-xl font-bold text-gray-800 mb-1 line-clamp-2">
                         {skill.SKILL_NAME}
                       </h3>
                       <div className="mb-3">
-                        <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                        {Number(skill.REVIEW_COUNT) > 0 ? (
+                          <button onClick={() => setReviewsFor({ userId: skill.USER_ID, name: skill.NAME })}
+                            className="hover:underline">
+                            <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                          </button>
+                        ) : (
+                          <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                        )}
                       </div>
-                      <p className="text-gray-500 text-sm mb-4">
+                      <p className="text-gray-500 text-sm mb-4 line-clamp-3">
                         {skill.DESCRIPTION}
                       </p>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-800">{skill.NAME}</p>
-                          <p className="text-sm text-gray-500">{skill.LOCATION}</p>
+                      <div className="mt-auto pt-4 flex items-center justify-between gap-3 border-t border-gray-50">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {skill.PROVIDER_AVATAR ? (
+                            <img src={`${API_BASE_URL}${skill.PROVIDER_AVATAR}`} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <span className="w-8 h-8 rounded-full bg-green-100 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                              {skill.NAME?.charAt(0)?.toUpperCase() || 'U'}
+                            </span>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-800 truncate">{skill.NAME}</p>
+                            <p className="text-sm text-gray-500 truncate">{skill.LOCATION}</p>
+                          </div>
                         </div>
                         {skill.USER_ID === currentUserId ? (
-                          <span className="text-xs text-gray-400 italic">Your skill</span>
+                          <span className="text-xs text-gray-400 italic shrink-0">Your skill</span>
                         ) : (
                           <button
                             onClick={() => handleContact(skill)}
-                            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-800">
-                            Contact
+                            disabled={contactingSkillId === skill.SKILL_ID}
+                            className="shrink-0 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-800 disabled:opacity-60">
+                            {contactingSkillId === skill.SKILL_ID ? 'Sending...' : 'Contact'}
                           </button>
                         )}
                       </div>
@@ -305,43 +327,60 @@ function Skills() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 text-gray-500">No skills match your search.</div>
         ) : (
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
             {paginatedSkills.map((skill) => (
               <div key={skill.SKILL_ID}
-                className="bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden hover:shadow-md hover:border-primary transition-all">
+                className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden hover:shadow-md hover:border-primary transition-all">
                 {skill.IMAGE_URL && (
-                  <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-40 object-cover" />
+                  <img src={`${API_BASE_URL}${skill.IMAGE_URL}`} alt={skill.SKILL_NAME} className="w-full h-40 object-cover shrink-0" />
                 )}
-                <div className="p-6">
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="bg-green-100 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                <div className="p-6 flex-1 flex flex-col">
+                  <div className="flex justify-between items-start mb-3 gap-2">
+                    <span className="bg-green-100 text-primary px-3 py-1 rounded-full text-sm font-medium shrink-0">
                       {skill.CATEGORY}
                     </span>
-                    <span className="text-primary font-bold">
+                    <span className="text-primary font-bold text-right shrink-0">
                       Rs. {skill.HOURLY_RATE}/hr
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-1">
+                  <h3 className="text-xl font-bold text-gray-800 mb-1 line-clamp-2">
                     {skill.SKILL_NAME}
                   </h3>
                   <div className="mb-3">
-                    <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                    {Number(skill.REVIEW_COUNT) > 0 ? (
+                      <button onClick={() => setReviewsFor({ userId: skill.USER_ID, name: skill.NAME })}
+                        className="hover:underline">
+                        <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                      </button>
+                    ) : (
+                      <StarRating rating={skill.AVG_RATING} count={skill.REVIEW_COUNT} />
+                    )}
                   </div>
-                  <p className="text-gray-500 text-sm mb-4">
+                  <p className="text-gray-500 text-sm mb-4 line-clamp-3">
                     {skill.DESCRIPTION}
                   </p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-800">{skill.NAME}</p>
-                      <p className="text-sm text-gray-500">{skill.LOCATION}</p>
+                  <div className="mt-auto pt-4 flex items-center justify-between gap-3 border-t border-gray-50">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {skill.PROVIDER_AVATAR ? (
+                        <img src={`${API_BASE_URL}${skill.PROVIDER_AVATAR}`} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <span className="w-8 h-8 rounded-full bg-green-100 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                          {skill.NAME?.charAt(0)?.toUpperCase() || 'U'}
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-800 truncate">{skill.NAME}</p>
+                        <p className="text-sm text-gray-500 truncate">{skill.LOCATION}</p>
+                      </div>
                     </div>
                     {skill.USER_ID === currentUserId ? (
-                      <span className="text-xs text-gray-400 italic">Your skill</span>
+                      <span className="text-xs text-gray-400 italic shrink-0">Your skill</span>
                     ) : (
                       <button
                         onClick={() => handleContact(skill)}
-                        className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-800">
-                        Contact
+                        disabled={contactingSkillId === skill.SKILL_ID}
+                        className="shrink-0 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-800 disabled:opacity-60">
+                        {contactingSkillId === skill.SKILL_ID ? 'Sending...' : 'Contact'}
                       </button>
                     )}
                   </div>
@@ -383,6 +422,14 @@ function Skills() {
       <footer className="bg-primary text-green-100 text-center py-6 mt-8">
         <p>2026 SkillBridge - Connecting Communities</p>
       </footer>
+
+      {reviewsFor && (
+        <ReviewsModal
+          userId={reviewsFor.userId}
+          providerName={reviewsFor.name}
+          onClose={() => setReviewsFor(null)}
+        />
+      )}
     </div>
   );
 }

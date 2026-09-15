@@ -10,6 +10,7 @@ function Register() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -18,13 +19,16 @@ function Register() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
       await axios.post(`${API_BASE_URL}/api/auth/register`, formData);
       setSuccess('Account created successfully!');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      setError('Registration failed! Try again.');
+      setError(err.response?.data?.message || 'Registration failed! Try again.');
     }
+    setLoading(false);
   };
 
   return (
@@ -113,8 +117,9 @@ function Register() {
 
             <button
               type="submit"
-              className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-green-800 transition-all">
-              Create Account
+              disabled={loading}
+              className="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-green-800 transition-all disabled:opacity-60">
+              {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
 

@@ -447,6 +447,7 @@ const Admin = () => {
                                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Category</th>
                                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Provider</th>
                                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Hourly Rate</th>
+                                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Rating</th>
                                         <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Posted</th>
                                         <th className="px-4 py-3 text-center text-sm font-semibold text-gray-600">Actions</th>
                                     </tr>
@@ -463,6 +464,13 @@ const Admin = () => {
                                             </td>
                                             <td className="px-4 py-3">{s.provider?.name}</td>
                                             <td className="px-4 py-3 font-medium" style={{ color: '#800000' }}>Rs. {s.hourly_rate}</td>
+                                            <td className="px-4 py-3 text-sm">
+                                                {Number(s.review_count) > 0 ? (
+                                                    <span>⭐ {Number(s.avg_rating).toFixed(1)} <span className="text-gray-400">({s.review_count})</span></span>
+                                                ) : (
+                                                    <span className="text-gray-400">No reviews</span>
+                                                )}
+                                            </td>
                                             <td className="px-4 py-3 text-sm text-gray-500">{s.created_at || '—'}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <button

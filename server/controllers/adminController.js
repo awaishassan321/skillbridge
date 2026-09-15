@@ -24,8 +24,18 @@ const deleteUser = async (req, res) => {
 
 const getAllSkills = async (req, res) => {
     try {
-        const result = await pool.query(`SELECT s.skill_id, s.skill_name, s.category, s.hourly_rate, u.name as provider_name FROM skillbridge.skills s JOIN skillbridge.users u ON s.user_id = u.user_id`);
-        res.json({ success: true, skills: result.rows.map(row => ({ skill_id: row.skill_id, skill_name: row.skill_name, category: row.category, hourly_rate: row.hourly_rate, provider: { name: row.provider_name } })) });
+        const result = await pool.query(`
+            SELECT s.skill_id, s.skill_name, s.category, s.hourly_rate, u.name as provider_name,
+                   COALESCE(rv.avg_rating, 0) as avg_rating, COALESCE(rv.review_count, 0) as review_count
+            FROM skillbridge.skills s
+            JOIN skillbridge.users u ON s.user_id = u.user_id
+            LEFT JOIN (
+                SELECT target_id, ROUND(AVG(rating), 1) AS avg_rating, COUNT(*) AS review_count
+                FROM skillbridge.reviews
+                GROUP BY target_id
+            ) rv ON rv.target_id = s.user_id
+        `);
+        res.json({ success: true, skills: result.rows.map(row => ({ skill_id: row.skill_id, skill_name: row.skill_name, category: row.category, hourly_rate: row.hourly_rate, avg_rating: row.avg_rating, review_count: row.review_count, provider: { name: row.provider_name } })) });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error' });
     }
