@@ -9,7 +9,7 @@ const canAccessRequest = async (requestId, userId) => {
 
     const { sender_id, receiver_id, status } = result.rows[0];
     if (sender_id !== userId && receiver_id !== userId) return { ok: false, reason: 'forbidden' };
-    if (status !== 'accepted') return { ok: false, reason: 'not_accepted' };
+    if (!['accepted', 'completed'].includes(status)) return { ok: false, reason: 'not_accepted' };
 
     return { ok: true };
 };
@@ -22,7 +22,7 @@ const getMessages = async (req, res) => {
         if (!access.ok) {
             if (access.reason === 'not_found') return res.status(404).json({ message: 'Request not found' });
             if (access.reason === 'forbidden') return res.status(403).json({ message: 'You are not part of this request' });
-            return res.status(400).json({ message: 'Chat is only available for accepted requests' });
+            return res.status(400).json({ message: 'Chat is only available once a request is accepted' });
         }
 
         const result = await pool.query(
@@ -56,7 +56,7 @@ const sendMessage = async (req, res) => {
         if (!access.ok) {
             if (access.reason === 'not_found') return res.status(404).json({ message: 'Request not found' });
             if (access.reason === 'forbidden') return res.status(403).json({ message: 'You are not part of this request' });
-            return res.status(400).json({ message: 'Chat is only available for accepted requests' });
+            return res.status(400).json({ message: 'Chat is only available once a request is accepted' });
         }
 
         const result = await pool.query(

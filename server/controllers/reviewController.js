@@ -13,7 +13,8 @@ const addReview = async (req, res) => {
         }
 
         // A review tied to a request must actually belong to that requester,
-        // and the request must be accepted, so people can't review work that never happened.
+        // and the work must be marked completed, so people can't review a job
+        // that was only just accepted (or never happened).
         if (requestId) {
             const reqCheck = await pool.query(
                 `SELECT sender_id, receiver_id, status FROM skillbridge.requests WHERE request_id = $1`,
@@ -26,8 +27,8 @@ const addReview = async (req, res) => {
             if (sender_id !== reviewerId) {
                 return res.status(403).json({ message: 'You can only review your own requests' });
             }
-            if (status !== 'accepted') {
-                return res.status(400).json({ message: 'You can only review accepted requests' });
+            if (status !== 'completed') {
+                return res.status(400).json({ message: 'You can only review completed requests' });
             }
             if (receiver_id !== targetId) {
                 return res.status(400).json({ message: 'Target does not match this request' });

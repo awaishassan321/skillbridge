@@ -80,18 +80,25 @@ const getRequests = async (req, res) => {
     }
 };
 
+// Only these transitions are allowed, and only by the receiving provider —
+// this keeps 'completed' from being reachable before the work was even accepted.
+const ALLOWED_TRANSITIONS = {
+    pending: ['accepted', 'rejected'],
+    accepted: ['completed']
+};
+
 const updateRequest = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     const userId = req.user.userId;
 
-    if (!['accepted', 'rejected'].includes(status)) {
+    if (!['accepted', 'rejected', 'completed'].includes(status)) {
         return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
     try {
         const checkResult = await pool.query(
-            `SELECT receiver_id FROM skillbridge.requests WHERE request_id = $1`,
+            `SELECT receiver_id, status FROM skillbridge.requests WHERE request_id = $1`,
             [id]
         );
 
@@ -99,10 +106,14 @@ const updateRequest = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Request not found' });
         }
 
-        const receiverId = checkResult.rows[0].receiver_id;
+        const { receiver_id: receiverId, status: currentStatus } = checkResult.rows[0];
 
         if (receiverId !== userId) {
             return res.status(403).json({ success: false, message: 'You can only update requests sent to you' });
+        }
+
+        if (!ALLOWED_TRANSITIONS[currentStatus]?.includes(status)) {
+            return res.status(400).json({ success: false, message: `Cannot move a ${currentStatus} request to ${status}` });
         }
 
         await pool.query(
